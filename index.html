@@ -1,0 +1,633 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  LayoutDashboard, 
+  Inbox, 
+  Send, 
+  Plus, 
+  Search, 
+  FileText, 
+  MoreVertical,
+  LogOut, 
+  Menu, 
+  X, 
+  Bell, 
+  CheckCircle2, 
+  AlertCircle, 
+  Loader2, 
+  Printer, 
+  Eye, 
+  Trash2, 
+  UserPlus, 
+  Bold, 
+  Italic, 
+  Underline, 
+  List, 
+  ListOrdered, 
+  AlignLeft, 
+  AlignCenter, 
+  AlignRight, 
+  AlignJustify, 
+  Settings, 
+  Image as ImageIcon,
+  ShieldCheck,
+  FileBadge
+} from 'lucide-react';
+
+// === KONFIGURASI SUPABASE ===
+const SUPABASE_URL = "https://bxlgycdgcxqvqqnerivh.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_QP0Nv51K8Lamp1mwBmKfYQ_1Xhiso51";
+
+const App = () => {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [selectedLetter, setSelectedLetter] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(false);
+  
+  // State untuk Pengaturan Kop Surat (Header)
+  const [headerSettings, setHeaderSettings] = useState({
+    name: 'Koperasi Simpan Pinjam Sejahtera',
+    skNumber: 'AHU-0001234.AH.01.26.Tahun 2026',
+    aktaPendirian: 'No. 08 Tanggal 10 Januari 2026',
+    address: 'Jl. Raya Utama No. 123, Kota Administrasi, Indonesia',
+    contact: 'Telp: (021) 1234567 | Email: admin@koperasisejahtera.co.id',
+    logoUrl: '' 
+  });
+
+  // State khusus untuk form penandatangan dan editor isi surat
+  const [formSignatories, setFormSignatories] = useState([{ name: '', title: '' }]);
+  const [editorContent, setEditorContent] = useState('');
+  const editorRef = useRef(null);
+
+  // State untuk data
+  const [suratMasuk, setSuratMasuk] = useState([]);
+  const [suratKeluar, setSuratKeluar] = useState([]);
+
+  const addNotification = (message, type = 'success') => {
+    const id = Date.now();
+    setNotifications(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 3000);
+  };
+
+  useEffect(() => {
+    if (!SUPABASE_URL) {
+      setSuratMasuk([
+        { id: 1, nomor_surat: '001/M/V/2024', asal_surat: 'Dinas Koperasi', perihal: 'Undangan Rapat Tahunan', tanggal_surat: '2024-05-01', tanggal_terima: '2024-05-03' },
+      ]);
+      setSuratKeluar([
+        { 
+          id: 1, 
+          nomor_surat: '045/KOP-SR/V/2026', 
+          tujuan: 'Seluruh Anggota Koperasi', 
+          perihal: 'Undangan Rapat Anggota Tahunan (RAT)', 
+          tanggal_surat: '2026-05-11', 
+          kategori: 'Penting',
+          isi_surat: '<p>Mengharap kehadiran <b>Bapak/Ibu Anggota Koperasi</b> dalam acara Rapat Anggota Tahunan yang akan dilaksanakan pada:</p><ul><li>Hari: Sabtu</li><li>Tempat: Aula Serbaguna</li></ul><p>Demikian undangan ini kami sampaikan.</p>',
+          signatories: [
+            { name: 'Budi Santoso', title: 'Ketua Koperasi' },
+            { name: 'Siti Aminah', title: 'Sekretaris' }
+          ]
+        }
+      ]);
+    }
+  }, []);
+
+  const execCommand = (command, value = null) => {
+    document.execCommand(command, false, value);
+    if (editorRef.current) {
+      setEditorContent(editorRef.current.innerHTML);
+    }
+  };
+
+  const handleAddSignatory = () => {
+    setFormSignatories([...formSignatories, { name: '', title: '' }]);
+  };
+
+  const handleRemoveSignatory = (index) => {
+    if (formSignatories.length > 1) {
+      setFormSignatories(formSignatories.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleSignatoryChange = (index, field, value) => {
+    const updated = [...formSignatories];
+    updated[index][field] = value;
+    setFormSignatories(updated);
+  };
+
+  const handleAddData = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    const formData = new FormData(e.target);
+    const baseData = Object.fromEntries(formData.entries());
+    
+    const newData = {
+      ...baseData,
+      id: Date.now(),
+      isi_surat: activeTab === 'keluar' ? editorContent : '',
+      signatories: activeTab === 'keluar' ? formSignatories : []
+    };
+
+    if (activeTab === 'masuk') {
+      setSuratMasuk([newData, ...suratMasuk]);
+      addNotification('Surat masuk berhasil dicatat');
+    } else {
+      setSuratKeluar([newData, ...suratKeluar]);
+      addNotification('Draft surat keluar berhasil dibuat');
+    }
+    
+    setLoading(false);
+    setShowForm(false);
+    setFormSignatories([{ name: '', title: '' }]);
+    setEditorContent('');
+  };
+
+  const handleSaveSettings = (e) => {
+    e.preventDefault();
+    addNotification('Pengaturan Kop Surat berhasil disimpan');
+  };
+
+  const openPreview = (letter) => {
+    setSelectedLetter(letter);
+    setShowPreview(true);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900 print:bg-white">
+      {/* Sidebar - Theme: Red (Merah) */}
+      <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-red-800 text-white transition-all duration-300 flex flex-col fixed h-full z-20 shadow-xl print:hidden`}>
+        <div className="p-6 flex items-center gap-3">
+          <div className="bg-white p-2 rounded-lg shadow-lg">
+            <FileText className="text-red-700" size={24} />
+          </div>
+          {sidebarOpen && <span className="font-bold text-xl tracking-tight text-white uppercase tracking-wider">ADM KDMP TAMANJAYA</span>}
+        </div>
+
+        <nav className="flex-1 px-4 py-6 space-y-2">
+          <NavItem icon={<LayoutDashboard size={20} />} label="Dashboard" active={activeTab === 'dashboard'} collapsed={!sidebarOpen} onClick={() => setActiveTab('dashboard')} />
+          <NavItem icon={<Inbox size={20} />} label="Surat Masuk" active={activeTab === 'masuk'} collapsed={!sidebarOpen} onClick={() => setActiveTab('masuk')} />
+          <NavItem icon={<Send size={20} />} label="Surat Keluar" active={activeTab === 'keluar'} collapsed={!sidebarOpen} onClick={() => setActiveTab('keluar')} />
+          <div className="my-4 border-t border-red-700/50 mx-2"></div>
+          <NavItem icon={<Settings size={20} />} label="Pengaturan" active={activeTab === 'settings'} collapsed={!sidebarOpen} onClick={() => setActiveTab('settings')} />
+        </nav>
+
+        <div className="p-4 border-t border-red-700">
+          <button className="flex items-center gap-3 px-4 py-2 w-full hover:bg-red-700 rounded-lg transition-colors text-red-100">
+            <LogOut size={20} />
+            {sidebarOpen && <span>Keluar</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-20'} print:ml-0`}>
+        {/* Header */}
+        <header className="bg-white border-b sticky top-0 z-10 px-8 py-4 flex items-center justify-between print:hidden">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-slate-100 rounded-lg lg:block hidden text-red-600">
+              <Menu size={20} />
+            </button>
+            <h1 className="text-xl font-semibold capitalize text-slate-800">
+              {activeTab === 'dashboard' ? 'Ringkasan Administrasi' : `Manajemen ${activeTab}`}
+            </h1>
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3 border-l pl-6 text-slate-600">
+              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-700 font-bold border-2 border-white shadow-sm">AD</div>
+              <div className="hidden sm:block">
+                <p className="text-sm font-bold text-slate-800">Admin Koperasi</p>
+                <p className="text-xs text-slate-500 font-medium">Super Admin</p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div className="p-8 max-w-7xl mx-auto print:p-0">
+          {activeTab === 'dashboard' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <StatCard title="Total Surat Masuk" count={suratMasuk.length} icon={<Inbox />} color="bg-red-600" />
+                <StatCard title="Total Surat Keluar" count={suratKeluar.length} icon={<Send />} color="bg-red-500" />
+                <StatCard title="Total Arsip" count={suratMasuk.length + suratKeluar.length} icon={<FileText />} color="bg-slate-800" />
+              </div>
+              <div className="bg-white rounded-2xl shadow-sm border p-6 text-slate-700">
+                <h2 className="text-lg font-bold mb-6">Aktifitas Terakhir</h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b text-slate-400 text-xs uppercase tracking-wider font-bold">
+                        <th className="pb-4 px-4">No. Surat</th>
+                        <th className="pb-4 px-4">Perihal</th>
+                        <th className="pb-4 px-4 text-center">Tipe</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-sm divide-y text-slate-600">
+                      {suratKeluar.slice(0, 3).map(s => (
+                        <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-4 px-4 font-bold text-red-700">{s.nomor_surat}</td>
+                          <td className="py-4 px-4">{s.perihal}</td>
+                          <td className="py-4 px-4 text-center">
+                            <span className="px-3 py-1 rounded-full bg-red-100 text-red-700 text-[10px] font-black uppercase">Keluar</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'settings' && (
+            <div className="space-y-6 animate-in fade-in duration-500 max-w-2xl">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">Pengaturan Kop Surat</h2>
+                <p className="text-sm text-slate-500 font-medium">Data ini akan muncul di bagian header setiap surat resmi.</p>
+              </div>
+              <div className="bg-white rounded-2xl shadow-sm border p-8 space-y-6">
+                <form onSubmit={handleSaveSettings} className="space-y-4 text-slate-700">
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase mb-2 tracking-widest">Nama Koperasi</label>
+                    <input 
+                      value={headerSettings.name} 
+                      onChange={(e) => setHeaderSettings({...headerSettings, name: e.target.value})}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-red-100 focus:border-red-500 outline-none transition-all font-bold" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase mb-2 tracking-widest flex items-center gap-2">
+                      <ShieldCheck size={14} className="text-red-600" /> SK Kemenkumham (Legalitas)
+                    </label>
+                    <input 
+                      placeholder="Nomor SK Kemenkumham..."
+                      value={headerSettings.skNumber} 
+                      onChange={(e) => setHeaderSettings({...headerSettings, skNumber: e.target.value})}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-red-100 focus:border-red-500 outline-none transition-all font-semibold text-slate-700" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase mb-2 tracking-widest flex items-center gap-2">
+                      <FileBadge size={14} className="text-red-600" /> Akta Pendirian
+                    </label>
+                    <input 
+                      placeholder="Nomor dan Tanggal Akta..."
+                      value={headerSettings.aktaPendirian} 
+                      onChange={(e) => setHeaderSettings({...headerSettings, aktaPendirian: e.target.value})}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-red-100 focus:border-red-500 outline-none transition-all font-semibold text-slate-700" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase mb-2 tracking-widest">Alamat Lengkap</label>
+                    <input 
+                      value={headerSettings.address} 
+                      onChange={(e) => setHeaderSettings({...headerSettings, address: e.target.value})}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-red-100 focus:border-red-500 outline-none transition-all" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase mb-2 tracking-widest">Kontak (Telp/Email)</label>
+                    <input 
+                      value={headerSettings.contact} 
+                      onChange={(e) => setHeaderSettings({...headerSettings, contact: e.target.value})}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-red-100 focus:border-red-500 outline-none transition-all" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase mb-2 tracking-widest flex items-center gap-2">
+                      <ImageIcon size={14} /> URL Logo Koperasi
+                    </label>
+                    <input 
+                      placeholder="https://link-logo-anda.png"
+                      value={headerSettings.logoUrl} 
+                      onChange={(e) => setHeaderSettings({...headerSettings, logoUrl: e.target.value})}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-red-100 focus:border-red-500 outline-none transition-all font-mono text-xs" 
+                    />
+                    <p className="text-[10px] text-slate-400 mt-2 italic">*Kosongkan jika ingin menggunakan placeholder default.</p>
+                  </div>
+                  <div className="pt-4">
+                    <button type="submit" className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-100">
+                      Simpan Perubahan
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {(activeTab === 'masuk' || activeTab === 'keluar') && (
+            <div className="space-y-6 animate-in fade-in duration-500">
+              <div className="flex justify-between items-center text-slate-800">
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight">Arsip {activeTab === 'masuk' ? 'Surat Masuk' : 'Surat Keluar'}</h2>
+                  <p className="text-sm text-slate-500 font-medium">Kelola dokumen resmi koperasi secara digital.</p>
+                </div>
+                <button onClick={() => { setFormSignatories([{ name: '', title: '' }]); setEditorContent(''); setShowForm(true); }} className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-red-200 transition-all active:scale-95 font-bold uppercase text-xs tracking-widest">
+                  <Plus size={18} /> Tambah Data
+                </button>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                    <tr className="text-[10px] font-black uppercase tracking-[0.2em]">
+                      <th className="px-6 py-4">No. Surat</th>
+                      <th className="px-6 py-4">{activeTab === 'masuk' ? 'Asal' : 'Tujuan'}</th>
+                      <th className="px-6 py-4">Perihal</th>
+                      <th className="px-6 py-4 text-center">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
+                    {(activeTab === 'masuk' ? suratMasuk : suratKeluar).map(item => (
+                      <tr key={item.id} className="hover:bg-red-50/30 group transition-colors">
+                        <td className="px-6 py-4 font-bold text-red-700">{item.nomor_surat}</td>
+                        <td className="px-6 py-4 font-medium text-slate-700">{activeTab === 'masuk' ? item.asal_surat : item.tujuan}</td>
+                        <td className="px-6 py-4">{item.perihal}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex justify-center gap-2">
+                            {activeTab === 'keluar' && (
+                              <button 
+                                onClick={() => openPreview(item)}
+                                className="p-2 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg transition-all shadow-sm"
+                                title="Lihat Format Surat"
+                              >
+                                <Eye size={16} />
+                              </button>
+                            )}
+                            <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400">
+                              <MoreVertical size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* Modal Form */}
+      {showForm && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden my-8 animate-in fade-in zoom-in duration-300">
+            <div className="p-6 border-b flex justify-between items-center bg-red-50">
+              <h3 className="font-bold text-xl text-red-800">Form {activeTab === 'masuk' ? 'Surat Masuk' : 'Buat Surat Keluar'}</h3>
+              <button onClick={() => setShowForm(false)} className="p-2 hover:bg-white rounded-full text-slate-400 border border-transparent hover:border-slate-200"><X size={20} /></button>
+            </div>
+            <form onSubmit={handleAddData} className="p-8 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-slate-700">
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-black text-slate-400 uppercase mb-2 tracking-widest">Nomor Surat</label>
+                  <input name="nomor_surat" required className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-red-100 focus:border-red-500 outline-none transition-all font-bold text-red-700" placeholder="000/KOP-SR/V/2026" />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase mb-2 tracking-widest">{activeTab === 'masuk' ? 'Asal Surat' : 'Tujuan'}</label>
+                  <input name={activeTab === 'masuk' ? 'asal_surat' : 'tujuan'} required className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-red-100 focus:border-red-500 outline-none transition-all font-semibold" />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase mb-2 tracking-widest">Tanggal</label>
+                  <input type="date" name="tanggal_surat" required className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-red-100 focus:border-red-500 outline-none transition-all" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-black text-slate-400 uppercase mb-2 tracking-widest">Perihal</label>
+                  <input name="perihal" required className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-red-100 focus:border-red-500 outline-none transition-all" />
+                </div>
+                
+                {activeTab === 'keluar' && (
+                  <>
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-black text-slate-400 uppercase mb-2 tracking-widest font-bold">Isi Surat (Editor)</label>
+                      <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                        <div className="bg-slate-50 border-b border-slate-200 p-2 flex flex-wrap gap-1">
+                          <ToolbarButton icon={<Bold size={14} />} onClick={() => execCommand('bold')} title="Tebal" />
+                          <ToolbarButton icon={<Italic size={14} />} onClick={() => execCommand('italic')} title="Miring" />
+                          <ToolbarButton icon={<Underline size={14} />} onClick={() => execCommand('underline')} title="Garis Bawah" />
+                          <div className="w-px h-6 bg-slate-200 mx-1 self-center" />
+                          <ToolbarButton icon={<AlignLeft size={14} />} onClick={() => execCommand('justifyLeft')} title="Rata Kiri" />
+                          <ToolbarButton icon={<AlignCenter size={14} />} onClick={() => execCommand('justifyCenter')} title="Rata Tengah" />
+                          <ToolbarButton icon={<AlignRight size={14} />} onClick={() => execCommand('justifyRight')} title="Rata Kanan" />
+                          <ToolbarButton icon={<AlignJustify size={14} />} onClick={() => execCommand('justifyFull')} title="Rata Kiri Kanan" />
+                          <div className="w-px h-6 bg-slate-200 mx-1 self-center" />
+                          <ToolbarButton icon={<List size={14} />} onClick={() => execCommand('insertUnorderedList')} title="Bullet" />
+                          <ToolbarButton icon={<ListOrdered size={14} />} onClick={() => execCommand('insertOrderedList')} title="Numbering" />
+                        </div>
+                        <div 
+                          ref={editorRef}
+                          contentEditable
+                          onInput={(e) => setEditorContent(e.currentTarget.innerHTML)}
+                          className="w-full min-h-[200px] max-h-[400px] p-4 outline-none overflow-y-auto bg-white text-sm prose prose-sm max-w-none text-slate-800"
+                          style={{ minHeight: '200px' }}
+                          placeholder="Tuliskan isi surat di sini..."
+                        ></div>
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-2 space-y-4">
+                      <div className="flex justify-between items-center border-b pb-2 mt-4">
+                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest text-slate-500">Penandatangan Surat</label>
+                        <button 
+                          type="button" 
+                          onClick={handleAddSignatory}
+                          className="text-xs flex items-center gap-1 text-red-600 font-bold hover:text-red-800 transition-colors"
+                        >
+                          <UserPlus size={14} /> Tambah Orang
+                        </button>
+                      </div>
+                      
+                      {formSignatories.map((sig, idx) => (
+                        <div key={idx} className="bg-red-50/30 p-4 rounded-2xl space-y-3 relative group animate-in slide-in-from-top-2 duration-200 border border-red-100/50">
+                          {formSignatories.length > 1 && (
+                            <button 
+                              type="button" 
+                              onClick={() => handleRemoveSignatory(idx)}
+                              className="absolute top-4 right-4 text-slate-300 hover:text-rose-500 transition-colors"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nama Lengkap</label>
+                              <input 
+                                value={sig.name}
+                                onChange={(e) => handleSignatoryChange(idx, 'name', e.target.value)}
+                                required 
+                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-red-500 outline-none text-sm font-semibold" 
+                                placeholder="Contoh: Budi Santoso" 
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Jabatan</label>
+                              <input 
+                                value={sig.title}
+                                onChange={(e) => handleSignatoryChange(idx, 'title', e.target.value)}
+                                required 
+                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-red-500 outline-none text-sm" 
+                                placeholder="Contoh: Ketua Koperasi" 
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="pt-6 flex gap-4">
+                <button type="button" onClick={() => setShowForm(false)} className="flex-1 px-4 py-3 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors font-bold text-slate-500 uppercase text-xs tracking-widest">Batal</button>
+                <button type="submit" disabled={loading} className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 shadow-xl shadow-red-100 transition-all active:scale-95 font-bold uppercase text-xs tracking-widest flex items-center justify-center gap-2">
+                  {loading ? <Loader2 className="animate-spin" size={18} /> : 'Simpan Dokumen'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Preview Surat Otomatis */}
+      {showPreview && selectedLetter && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white print:static print:block">
+          <div className="bg-white rounded-3xl w-full max-w-5xl shadow-2xl flex flex-col h-[90vh] print:h-auto print:shadow-none print:rounded-none">
+            <div className="p-4 border-b flex justify-between items-center bg-slate-50 print:hidden">
+              <div className="flex items-center gap-2 text-red-600">
+                <FileText size={20} />
+                <span className="font-bold text-slate-700 italic">Preview Format Surat Koperasi</span>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={handlePrint} className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-xl hover:bg-red-700 transition-all font-bold text-xs uppercase tracking-widest shadow-lg shadow-red-200">
+                  <Printer size={16} /> Cetak Surat
+                </button>
+                <button onClick={() => setShowPreview(false)} className="p-2 hover:bg-white border border-transparent hover:border-slate-200 rounded-full text-slate-400">
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Document Content */}
+            <div className="flex-1 overflow-y-auto p-12 bg-slate-200 flex justify-center print:bg-white print:p-0 print:overflow-visible">
+              <div id="print-area" className="bg-white w-[210mm] min-h-[297mm] shadow-xl pt-[10mm] px-[25mm] pb-[25mm] text-black font-serif relative print:shadow-none print:w-full text-[14px]">
+                {/* KOP SURAT DINAMIS */}
+                <div className="border-b-4 border-double border-black pb-4 mb-8 flex items-center gap-6">
+                  <div className="w-24 h-24 flex items-center justify-center border-2 border-black font-bold text-[10px] text-center p-1 uppercase font-sans overflow-hidden bg-slate-50">
+                    {headerSettings.logoUrl ? (
+                      <img src={headerSettings.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
+                    ) : (
+                      "Logo Koperasi"
+                    )}
+                  </div>
+                  <div className="flex-1 text-center">
+                    <h2 className="text-2xl font-bold uppercase tracking-widest">{headerSettings.name}</h2>
+                    <div className="text-[10px] font-sans text-slate-700 mb-1 space-y-0.5 font-bold">
+                      {headerSettings.skNumber && (
+                        <p>SK KEMENKUMHAM: <span>{headerSettings.skNumber}</span></p>
+                      )}
+                      {headerSettings.aktaPendirian && (
+                        <p>AKTA PENDIRIAN: <span>{headerSettings.aktaPendirian}</span></p>
+                      )}
+                    </div>
+                    <p className="text-xs italic font-sans">{headerSettings.address}</p>
+                    <p className="text-xs font-sans">{headerSettings.contact}</p>
+                  </div>
+                </div>
+
+                {/* INFO SURAT */}
+                <div className="mb-8 space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <p>Nomor : <span className="font-bold">{selectedLetter.nomor_surat}</span></p>
+                    <p>Tanggal: {new Date(selectedLetter.tanggal_surat).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                  </div>
+                  <p>Lamp. : -</p>
+                  <p>Perihal: <span className="underline font-bold uppercase">{selectedLetter.perihal}</span></p>
+                </div>
+
+                <div className="mb-8 text-sm">
+                  <p className="font-bold">Kepada Yth,</p>
+                  <p className="font-bold">{selectedLetter.tujuan}</p>
+                  <p>Di Tempat</p>
+                </div>
+
+                <div className="space-y-4 text-justify leading-relaxed min-h-[300px] text-sm">
+                  <p>Dengan hormat,</p>
+                  <div 
+                    className="rich-text-output prose prose-sm max-w-none prose-p:my-1 prose-ul:list-disc prose-ol:list-decimal text-black font-serif"
+                    dangerouslySetInnerHTML={{ __html: selectedLetter.isi_surat || "<i>Isi surat belum diinput.</i>" }}
+                  />
+                  <p className="mt-4">Demikian surat ini kami sampaikan, atas perhatian dan kerjasama Bapak/Ibu, kami ucapkan terima kasih.</p>
+                </div>
+
+                <div className={`mt-16 flex ${selectedLetter.signatories?.length > 1 ? 'justify-around' : 'justify-end'}`}>
+                  {selectedLetter.signatories?.map((sig, i) => (
+                    <div key={i} className="text-center w-64 text-sm">
+                      <p className="mb-20 font-bold uppercase">{sig.title}</p>
+                      <p className="font-bold underline uppercase">{sig.name}</p>
+                      <p className="text-[10px] font-sans mt-1 italic">Pengurus {headerSettings.name}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="absolute bottom-10 left-0 right-0 text-center opacity-20 pointer-events-none text-[10px] font-sans italic">
+                  Dicetak melalui Sistem Administrasi Digital Koperasi pada {new Date().toLocaleString('id-ID')}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notifications */}
+      <div className="fixed bottom-8 right-8 space-y-3 z-[100] print:hidden">
+        {notifications.map(n => (
+          <div key={n.id} className="bg-slate-900/90 backdrop-blur-md text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 animate-in slide-in-from-right border border-white/10">
+            <div className={`p-1.5 rounded-full ${n.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`}>
+              {n.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+            </div>
+            <span className="text-sm font-semibold">{n.message}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Sub-components
+const NavItem = ({ icon, label, active, onClick, collapsed }) => (
+  <button onClick={onClick} className={`flex items-center gap-3 px-4 py-3.5 w-full rounded-2xl transition-all duration-300 ${active ? 'bg-white/10 text-white shadow-xl shadow-red-950/20 border border-white/20' : 'text-red-100/80 hover:bg-white/5 hover:text-white'}`}>
+    <span className={`${active ? 'text-white scale-110' : ''} transition-transform`}>{icon}</span>
+    {!collapsed && <span className="font-bold text-[10px] uppercase tracking-widest">{label}</span>}
+  </button>
+);
+
+const StatCard = ({ title, count, icon, color }) => (
+  <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6 group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-default">
+    <div className={`${color} p-5 rounded-2xl text-white shadow-lg shadow-current/20 transform group-hover:rotate-6 transition-transform duration-300`}>
+      {React.cloneElement(icon, { size: 32 })}
+    </div>
+    <div>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{title}</p>
+      <p className="text-3xl font-black text-slate-800 tracking-tight">{count}</p>
+    </div>
+  </div>
+);
+
+const ToolbarButton = ({ icon, onClick, title }) => (
+  <button 
+    type="button"
+    onMouseDown={(e) => { e.preventDefault(); onClick(); }}
+    className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-slate-600 transition-all border border-transparent hover:border-slate-200"
+    title={title}
+  >
+    {icon}
+  </button>
+);
+
+export default App;
