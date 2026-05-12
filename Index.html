@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADM KDMP TAMANJAYA - Administrasi Surat</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Crimson+Pro:ital,wght@0,400;0,700;1,400&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; overflow-x: hidden; }
+        .font-serif-doc { font-family: 'Crimson Pro', serif; }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #ef4444; border-radius: 10px; }
+
+        /* Print Settings */
+        @media print {
+            .print-hidden { display: none !important; }
+            #print-area { 
+                box-shadow: none !important; 
+                margin: 0 !important;
+                padding-top: 10mm !important; 
+                border: none !important;
+            }
+            body { background: white !important; }
+            @page { margin: 0; }
+        }
+
+        .size-a4 { width: 210mm; min-height: 297mm; }
+        .size-f4 { width: 215mm; min-height: 330mm; }
+
+        .rich-text-editor:empty:before {
+            content: attr(placeholder);
+            color: #cbd5e1;
+        }
+
+        @media (max-width: 1024px) {
+            #sidebar.closed { transform: translateX(-100%); }
+            #sidebar.open { transform: translateX(0); }
+            #main-content { margin-left: 0 !important; }
+            #overlay.active { display: block; }
+        }
+
+        /* Login Background */
+        .bg-pattern {
+            background-color: #f8fafc;
+            background-image: radial-gradient(#ef4444 0.5px, transparent 0.5px), radial-gradient(#ef4444 0.5px, #f8fafc 0.5px);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            opacity: 0.1;
+        }
+
+        /* Logo Fitting Logic */
+        .logo-frame img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain; /* Memastikan logo tidak gepeng */
+            padding: 2px;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+
+    <!-- LOGIN PAGE -->
+    <div id="page-login" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-50">
+        <div class="absolute inset-0 bg-pattern"></div>
+        <div class="relative w-full max-w-md p-4">
+            <div class="bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100">
+                <div class="bg-red-700 p-8 text-center">
+                    <div id="login-logo-container" class="inline-flex bg-white p-2 rounded-2xl shadow-lg mb-4 w-20 h-20 overflow-hidden items-center justify-center">
+                        <i data-lucide="file-text" class="text-red-700 w-10 h-10"></i>
+                    </div>
+                    <h2 class="text-white text-2xl font-black uppercase tracking-tight">ADM KDMP</h2>
+                    <p class="text-red-100 text-xs font-bold uppercase tracking-widest mt-1">E-Agenda Koperasi</p>
+                </div>
+                <div class="p-8 space-y-6">
+                    <div id="login-error" class="hidden bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold flex items-center gap-2 italic">
+                        <i data-lucide="alert-circle" class="w-4 h-4"></i> Akses ditolak! Periksa kembali.
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Username</label>
+                            <input id="login-user" type="text" class="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:border-red-500 font-semibold">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Password</label>
+                            <input id="login-pass" type="password" class="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:border-red-500 font-semibold">
+                        </div>
+                    </div>
+                    <button onclick="handleLogin()" class="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest shadow-xl shadow-red-200 transition-all active:scale-95">Masuk</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP CONTAINER -->
+    <div id="app-container" class="hidden">
+        <div id="overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-slate-900/40 z-20 hidden"></div>
+        <div class="flex">
+            <!-- SIDEBAR -->
+            <aside id="sidebar" class="w-64 bg-red-800 text-white h-screen fixed left-0 transition-all duration-300 z-30 print-hidden closed lg:translate-x-0 overflow-y-auto">
+                <div class="p-6 border-b border-red-700/50 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div id="sidebar-logo-container" class="bg-white p-1 rounded-lg w-10 h-10 flex items-center justify-center overflow-hidden">
+                            <i data-lucide="file-text" class="text-red-700 w-6 h-6"></i>
+                        </div>
+                        <span class="font-bold text-lg uppercase">ADM KDMP</span>
+                    </div>
+                    <button onclick="toggleSidebar()" class="lg:hidden"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+                <nav class="p-4 space-y-2">
+                    <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item flex items-center gap-3 px-4 py-3 w-full rounded-xl transition-all">
+                        <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                        <span class="font-bold text-xs uppercase tracking-widest">Dashboard</span>
+                    </button>
+                    <button onclick="switchTab('masuk')" id="nav-masuk" class="nav-item flex items-center gap-3 px-4 py-3 w-full rounded-xl transition-all text-red-100 hover:bg-white/5">
+                        <i data-lucide="inbox" class="w-5 h-5"></i>
+                        <span class="font-bold text-xs uppercase tracking-widest">Surat Masuk</span>
+                    </button>
+                    <button onclick="switchTab('keluar')" id="nav-keluar" class="nav-item flex items-center gap-3 px-4 py-3 w-full rounded-xl transition-all text-red-100 hover:bg-white/5">
+                        <i data-lucide="send" class="w-5 h-5"></i>
+                        <span class="font-bold text-xs uppercase tracking-widest">Surat Keluar</span>
+                    </button>
+                    <div class="my-4 border-t border-red-700/30"></div>
+                    <button onclick="switchTab('settings')" id="nav-settings" class="nav-item flex items-center gap-3 px-4 py-3 w-full rounded-xl transition-all text-red-100 hover:bg-white/5">
+                        <i data-lucide="settings" class="w-5 h-5"></i>
+                        <span class="font-bold text-xs uppercase tracking-widest">Pengaturan</span>
+                    </button>
+                </nav>
+                <div class="p-4 mt-auto border-t border-red-700/50">
+                    <button onclick="handleLogout()" class="flex items-center gap-3 px-4 py-2 w-full text-red-200 font-bold text-[10px] uppercase tracking-widest hover:text-white">
+                        <i data-lucide="log-out" class="w-4 h-4"></i> Keluar
+                    </button>
+                </div>
+            </aside>
+
+            <!-- MAIN CONTENT -->
+            <main id="main-content" class="flex-1 lg:ml-64 transition-all duration-300 w-full">
+                <header class="bg-white border-b px-4 lg:px-8 py-4 flex items-center justify-between sticky top-0 z-10 print-hidden">
+                    <div class="flex items-center gap-4">
+                        <button onclick="toggleSidebar()" class="p-2 lg:hidden text-red-600"><i data-lucide="menu" class="w-6 h-6"></i></button>
+                        <h1 id="tab-title" class="font-black text-slate-800 uppercase tracking-tight">Dashboard</h1>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div id="header-avatar" class="w-10 h-10 rounded-full bg-red-100 border-2 border-white shadow-sm flex items-center justify-center overflow-hidden font-bold text-red-700">AD</div>
+                        <div class="hidden sm:block text-right">
+                            <p class="text-xs font-black text-slate-800">ADMIN</p>
+                            <p class="text-[9px] text-slate-500 font-bold uppercase tracking-tighter">Sistem Koperasi</p>
+                        </div>
+                    </div>
+                </header>
+
+                <div class="p-4 lg:p-8 max-w-7xl mx-auto">
+                    <!-- Dashboard Section -->
+                    <div id="section-dashboard" class="tab-content space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="bg-white p-6 rounded-3xl border shadow-sm flex items-center gap-4">
+                                <div class="bg-red-600 p-4 rounded-2xl text-white"><i data-lucide="inbox" class="w-6 h-6"></i></div>
+                                <div><p class="text-[10px] font-bold text-slate-400 uppercase">Masuk</p><p id="count-masuk" class="text-2xl font-black">0</p></div>
+                            </div>
+                            <div class="bg-white p-6 rounded-3xl border shadow-sm flex items-center gap-4">
+                                <div class="bg-red-500 p-4 rounded-2xl text-white"><i data-lucide="send" class="w-6 h-6"></i></div>
+                                <div><p class="text-[10px] font-bold text-slate-400 uppercase">Keluar</p><p id="count-keluar" class="text-2xl font-black">0</p></div>
+                            </div>
+                            <div class="bg-slate-800 p-6 rounded-3xl shadow-sm flex items-center gap-4 text-white">
+                                <div class="bg-white/10 p-4 rounded-2xl"><i data-lucide="file-text" class="w-6 h-6"></i></div>
+                                <div><p class="text-[10px] font-bold text-slate-400 uppercase">Total</p><p id="count-arsip" class="text-2xl font-black">0</p></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Table Section -->
+                    <div id="section-table" class="tab-content hidden space-y-6">
+                        <div class="flex justify-between items-center">
+                            <h2 id="table-heading" class="text-xl font-black text-slate-800 uppercase">Arsip</h2>
+                            <button onclick="openForm()" class="bg-red-600 text-white px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg"><i data-lucide="plus" class="w-4 h-4 inline mr-2"></i> Baru</button>
+                        </div>
+                        <div class="bg-white rounded-3xl border overflow-hidden shadow-sm">
+                            <table class="w-full text-left">
+                                <thead class="bg-slate-50 text-[10px] font-black uppercase text-slate-400 border-b">
+                                    <tr><th class="px-6 py-4">Nomor</th><th class="px-6 py-4" id="th-pihak">Pihak</th><th class="px-6 py-4">Perihal</th><th class="px-6 py-4 text-center">Aksi</th></tr>
+                                </thead>
+                                <tbody id="table-body" class="text-sm"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Settings Section -->
+                    <div id="section-settings" class="tab-content hidden space-y-6 max-w-2xl">
+                        <h2 class="text-xl font-black text-slate-800 uppercase">Pengaturan</h2>
+                        <div class="bg-white p-8 rounded-3xl border shadow-sm space-y-6">
+                            <div class="space-y-4">
+                                <div><label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Link Logo GitHub (Raw)</label><input id="set-logo" placeholder="https://raw.githubusercontent.com/..." class="w-full px-4 py-3 bg-slate-50 border rounded-xl outline-none focus:border-red-500 font-mono text-xs"></div>
+                                <div><label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Nama Koperasi</label><input id="set-name" class="w-full px-4 py-3 bg-slate-50 border rounded-xl outline-none focus:border-red-500 font-bold"></div>
+                                <div><label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Alamat</label><input id="set-address" class="w-full px-4 py-3 bg-slate-50 border rounded-xl outline-none focus:border-red-500 text-sm"></div>
+                            </div>
+                            <button onclick="saveSettings()" class="w-full bg-red-600 text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg">Simpan & Terapkan</button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modals (Form & Preview) -->
+    <div id="modal-form" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden animate-in zoom-in">
+            <div class="p-6 bg-red-50 border-b flex justify-between items-center"><h3 id="modal-title" class="font-black text-red-800 uppercase">Input Data</h3><button onclick="closeForm()"><i data-lucide="x" class="w-5 h-5 text-slate-400"></i></button></div>
+            <div class="p-6 space-y-4">
+                <input id="input-nomor" placeholder="Nomor Surat" class="w-full px-4 py-3 border rounded-xl font-bold text-red-700">
+                <input id="input-pihak" placeholder="Pihak Asal/Tujuan" class="w-full px-4 py-3 border rounded-xl">
+                <input type="date" id="input-tanggal" class="w-full px-4 py-3 border rounded-xl">
+                <input id="input-perihal" placeholder="Perihal" class="w-full px-4 py-3 border rounded-xl">
+                <div id="extra-keluar" class="hidden space-y-4">
+                    <div id="input-isi" contenteditable="true" placeholder="Isi surat..." class="min-h-[100px] p-4 border rounded-xl text-sm rich-text-editor"></div>
+                    <div id="sig-list" class="space-y-2"></div>
+                    <button onclick="addSig()" class="text-[10px] font-bold text-red-600 uppercase tracking-widest">+ Penandatangan</button>
+                </div>
+                <button onclick="submitForm()" class="w-full bg-red-600 text-white py-4 rounded-xl font-black uppercase text-xs">Simpan Data</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-preview" class="fixed inset-0 bg-slate-900/90 z-[60] hidden flex-col overflow-y-auto p-4 lg:p-12 print:p-0">
+        <div class="bg-white max-w-4xl mx-auto w-full rounded-3xl shadow-2xl print:shadow-none print:rounded-none">
+            <div class="p-4 border-b flex justify-between items-center bg-slate-50 print:hidden sticky top-0 z-10 rounded-t-3xl">
+                <span class="text-xs font-black uppercase text-red-600">Preview Dokumen</span>
+                <div class="flex gap-2">
+                    <button onclick="window.print()" class="bg-red-600 text-white px-4 py-2 rounded-lg font-bold text-xs">Cetak</button>
+                    <button onclick="closePreview()" class="p-2 border rounded-lg"><i data-lucide="x" class="w-4 h-4"></i></button>
+                </div>
+            </div>
+            <div class="p-8 lg:p-16 flex justify-center">
+                <div id="print-area" class="size-a4 bg-white font-serif-doc text-black p-[20mm] print:p-0">
+                    <div class="border-b-4 border-double border-black pb-4 mb-8 flex items-center gap-6">
+                        <div id="prev-logo" class="w-24 h-24 flex items-center justify-center border-2 border-black p-1">LOGO</div>
+                        <div class="flex-1 text-center">
+                            <h2 id="prev-name" class="text-xl font-bold uppercase font-sans"></h2>
+                            <p id="prev-addr" class="text-[10px] font-sans italic"></p>
+                        </div>
+                    </div>
+                    <div id="prev-content" class="text-sm space-y-4"></div>
+                    <div id="prev-sigs" class="mt-12 flex justify-end gap-8"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="notif-container" class="fixed bottom-8 right-8 space-y-3 z-[100]"></div>
+
+    <script>
+        const VALID_USER = "admin";
+        const VALID_PASS = "koperasi123";
+        let currentTab = 'dashboard';
+        let dataMasuk = [];
+        let dataKeluar = [];
+        let sigs = [{name:'', title:''}];
+        let settings = { name:'KOPERASI DESA TAMANJAYA', address:'Kec. Gununghalu, Bandung Barat', logoUrl:'' };
+
+        window.onload = () => {
+            lucide.createIcons();
+            load();
+            check();
+            updateLogos();
+            if(window.innerWidth < 1024) toggleSidebar();
+        };
+
+        function check() {
+            const isOk = localStorage.getItem('login') === 'true';
+            document.getElementById('page-login').classList.toggle('hidden', isOk);
+            document.getElementById('app-container').classList.toggle('hidden', !isOk);
+        }
+
+        function handleLogin() {
+            if(document.getElementById('login-user').value === VALID_USER && document.getElementById('login-pass').value === VALID_PASS) {
+                localStorage.setItem('login', 'true');
+                check();
+                showNotif('Akses Diberikan');
+            } else {
+                document.getElementById('login-error').classList.remove('hidden');
+            }
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('login');
+            location.reload();
+        }
+
+        function updateLogos() {
+            const url = settings.logoUrl;
+            const content = url ? `<img src="${url}" onerror="this.parentElement.innerHTML='<i data-lucide=\'file-text\' class=\'text-red-700\'></i>'; lucide.createIcons();">` : `<i data-lucide="file-text" class="text-red-700 w-full h-full"></i>`;
+            document.getElementById('login-logo-container').innerHTML = content;
+            document.getElementById('sidebar-logo-container').innerHTML = content;
+            document.getElementById('header-avatar').innerHTML = url ? `<img src="${url}" class="w-full h-full object-cover">` : "AD";
+            lucide.createIcons();
+        }
+
+        function switchTab(t) {
+            currentTab = t;
+            document.querySelectorAll('.tab-content').forEach(x => x.classList.add('hidden'));
+            document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('bg-white/10', 'text-white'));
+            document.getElementById('nav-'+t).classList.add('bg-white/10', 'text-white');
+            document.getElementById('tab-title').innerText = t.toUpperCase();
+            if(t === 'dashboard') { document.getElementById('section-dashboard').classList.remove('hidden'); renderDash(); }
+            else if(t === 'settings') { document.getElementById('section-settings').classList.remove('hidden'); fillSettings(); }
+            else { document.getElementById('section-table').classList.remove('hidden'); renderTable(); }
+            if(window.innerWidth < 1024) toggleSidebar();
+        }
+
+        function toggleSidebar() {
+            const s = document.getElementById('sidebar');
+            s.classList.toggle('closed');
+            document.getElementById('overlay').classList.toggle('hidden');
+        }
+
+        function saveSettings() {
+            settings = { 
+                name: document.getElementById('set-name').value, 
+                address: document.getElementById('set-address').value, 
+                logoUrl: document.getElementById('set-logo').value 
+            };
+            save();
+            updateLogos();
+            showNotif('Pengaturan Diperbarui');
+        }
+
+        function openForm() {
+            document.getElementById('modal-form').classList.remove('hidden');
+            document.getElementById('extra-keluar').classList.toggle('hidden', currentTab !== 'keluar');
+            sigs = [{name:'', title:''}];
+            renderSigs();
+        }
+
+        function closeForm() { document.getElementById('modal-form').classList.add('hidden'); }
+
+        function addSig() { sigs.push({name:'', title:''}); renderSigs(); }
+
+        function renderSigs() {
+            document.getElementById('sig-list').innerHTML = sigs.map((s,i) => `
+                <div class="flex gap-2">
+                    <input oninput="sigs[${i}].name=this.value" value="${s.name}" placeholder="Nama" class="flex-1 p-2 border rounded-lg text-xs">
+                    <input oninput="sigs[${i}].title=this.value" value="${s.title}" placeholder="Jabatan" class="flex-1 p-2 border rounded-lg text-xs">
+                </div>
+            `).join('');
+        }
+
+        function submitForm() {
+            const data = {
+                id: Date.now(),
+                nomor: document.getElementById('input-nomor').value,
+                pihak: document.getElementById('input-pihak').value,
+                tgl: document.getElementById('input-tanggal').value,
+                perihal: document.getElementById('input-perihal').value,
+                isi: document.getElementById('input-isi').innerHTML,
+                sigs: [...sigs]
+            };
+            if(currentTab === 'masuk') dataMasuk.push(data); else dataKeluar.push(data);
+            save(); renderTable(); renderDash(); closeForm(); showNotif('Data Tersimpan');
+        }
+
+        function renderDash() {
+            document.getElementById('count-masuk').innerText = dataMasuk.length;
+            document.getElementById('count-keluar').innerText = dataKeluar.length;
+            document.getElementById('count-arsip').innerText = dataMasuk.length + dataKeluar.length;
+        }
+
+        function renderTable() {
+            const data = currentTab === 'masuk' ? dataMasuk : dataKeluar;
+            document.getElementById('th-pihak').innerText = currentTab === 'masuk' ? 'Asal' : 'Tujuan';
+            document.getElementById('table-body').innerHTML = data.map(item => `
+                <tr class="hover:bg-slate-50">
+                    <td class="px-6 py-4 font-bold text-red-700">${item.nomor}</td>
+                    <td class="px-6 py-4 font-bold text-slate-700">${item.pihak}</td>
+                    <td class="px-6 py-4 text-slate-500">${item.perihal}</td>
+                    <td class="px-6 py-4 flex justify-center gap-2">
+                        ${currentTab === 'keluar' ? `<button onclick='openPrev(${JSON.stringify(item)})' class="p-2 border rounded-lg text-red-600"><i data-lucide="eye" class="w-4 h-4"></i></button>` : ''}
+                        <button onclick="del(${item.id})" class="p-2 text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function del(id) {
+            if(!confirm("Hapus?")) return;
+            if(currentTab === 'masuk') dataMasuk = dataMasuk.filter(x => x.id !== id);
+            else dataKeluar = dataKeluar.filter(x => x.id !== id);
+            save(); renderTable(); renderDash();
+        }
+
+        function openPrev(item) {
+            document.getElementById('modal-preview').classList.remove('hidden');
+            document.getElementById('prev-name').innerText = settings.name;
+            document.getElementById('prev-addr').innerText = settings.address;
+            document.getElementById('prev-logo').innerHTML = settings.logoUrl ? `<img src="${settings.logoUrl}" class="w-full h-full object-contain">` : "LOGO";
+            document.getElementById('prev-content').innerHTML = `
+                <div class="flex justify-between"><span>Nomor: ${item.nomor}</span><span>${item.tgl}</span></div>
+                <p class="font-bold">Perihal: ${item.perihal}</p><br>
+                <p>Yth. ${item.pihak}</p>
+                <div class="mt-4">${item.isi}</div>
+            `;
+            document.getElementById('prev-sigs').innerHTML = item.sigs.map(s => `<div class="text-center w-48"><p class="mb-16 font-bold underline">${s.name}</p><p class="text-[10px] uppercase">${s.title}</p></div>`).join('');
+        }
+
+        function closePreview() { document.getElementById('modal-preview').classList.add('hidden'); }
+        function save() { localStorage.setItem('adm_koperasi_v5', JSON.stringify({masuk:dataMasuk, keluar:dataKeluar, settings})); }
+        function load() {
+            const s = localStorage.getItem('adm_koperasi_v5');
+            if(s) { const p = JSON.parse(s); dataMasuk = p.masuk||[]; dataKeluar = p.keluar||[]; settings = p.settings||settings; }
+        }
+        function fillSettings() {
+            document.getElementById('set-name').value = settings.name;
+            document.getElementById('set-address').value = settings.address;
+            document.getElementById('set-logo').value = settings.logoUrl;
+        }
+        function showNotif(m) {
+            const d = document.createElement('div');
+            d.className = "bg-slate-900 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right";
+            d.innerHTML = `<i data-lucide="check" class="w-4 h-4 text-emerald-400"></i><span class="text-xs font-bold uppercase">${m}</span>`;
+            document.getElementById('notif-container').appendChild(d); lucide.createIcons();
+            setTimeout(() => d.remove(), 3000);
+        }
+    </script>
+</body>
+</html>
